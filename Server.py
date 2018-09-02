@@ -50,19 +50,7 @@ def main():
             if not(jug_cont == cant_jug):
                 socket.send_json({"resp":"No", "cant": jug_cont})
             else:
-                socket.send_json({"resp":"Si", "cant": jug_cont})
-
-
-        #ident, dest, msg = socket.recv_multipart()
-        #data = msg.decode("utf-8").split("$")
-        #print("Message received from {}".format(ident))
-        #print (dest, msg)
-        #if data[0] == "connect":
-        #    print(players)
-        #    players[ident] = True
-        #    socket.send_multipart([msg, ident, dest])
-        #if data[0] == "Izquierda":
-        #    socket.send_multipart([msg, ident, dest])
+                socket.send_json({"resp":"Si", "cant": jug_cont, "pos_ene": posiciones})
 
 if __name__ == '__main__':
     main()

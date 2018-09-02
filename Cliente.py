@@ -70,6 +70,7 @@ class Sprites():
 
     def agregar(self, elem):
         self.lista.append(elem)
+        return self.lista.index(elem)
 
     def dibujar(self, screen):
         for sprite in self.lista:
@@ -200,8 +201,20 @@ def startGame():
             if resp_i == "No" and not(cant_i == cant_a):
                 print("Se conecto un nuevo jugador ({0})".format(cant_i))
             elif resp_i == "Si":
+                pos_ene = resp["pos_ene"]
                 print("SE CONECTARON TODOS LOS JUGADORES...")
                 print("Iniciando...")
+
+        # Agregar sprites enemigos
+        index_ene = []
+        print("POS_ENE ", pos_ene)
+        for enemigo in pos_ene:
+            pos_en = pos_ene[enemigo]
+            en = Jugador("images/pacman.png")
+            en.act_pos(pos_en)
+            en.camb_dib()
+            sprites.agregar(en)
+            index_ene.append(sprites.lista.index(en))
 
         # Iniciar graficos
         pygame.init()
