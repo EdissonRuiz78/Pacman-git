@@ -34,8 +34,9 @@ class Muro(pygame.sprite.Sprite):
         self.h = height
         self.dib = True
 
-class Galleta_p():
+class Galleta_p(pygame.sprite.Sprite):
     def __init__(self, color, width, height):
+        pygame.sprite.Sprite.__init__(self)
         self.image = pygame.Surface([width, height])
         self.rect = self.image.get_rect()
         self.image.fill(white)
@@ -82,6 +83,9 @@ class Sprites():
         self.lista[index].rect.left = elem.rect.left
         self.lista[index].rect.top = elem.rect.top
 
+    def buscar(self, sprite):
+        self.lista[self.lista.index(sprite)].dib = False
+
     def dibujar(self, screen):
         for sprite in self.lista:
             if sprite.dib:
@@ -89,14 +93,6 @@ class Sprites():
 
 #---------------------
 # FUNCIONES
-
-# Determinar si hay colision entre dos objetos
-#def hay_colision(pos, obj, ist=False):
-#    if ist:
-#        print("POS: ", pos, " OBJ: ", (obj.x, obj.y, obj.w, obj.h))
-#        print("RESUL: ")
-#        print(""), (pos[0] >= obj.x and pos[0] <= obj.x + obj.h) and (pos[1] >= obj.y and pos[1] <= obj.y + obj.w))
-#    return (pos[0] >= obj.x and pos[0] <= obj.x + obj.h) and (pos[1] >= obj.y and pos[1] <= obj.y + obj.w)
 
 # Determina si un objeto choca contra uno de los muros
 def hay_muro(pos, muros, ist=False):
@@ -170,7 +166,7 @@ def startGame():
     sprites.agregar(jugador)
 
   # Agregar las galletas pequeñas
-    lista_galletas = []
+    lista_galletas = pygame.sprite.RenderPlain()
     for row in range(19):
         for column in range(19):
             if (row == 7 or row == 8) and (column == 8 or column == 9 or column == 10):
@@ -185,7 +181,8 @@ def startGame():
                 continue
             else:
                 # Agregar galleta a los sprites
-                lista_galletas.append(galleta)
+                #lista_galletas.append(galleta)
+                lista_galletas.add(galleta)
                 sprites.agregar(galleta)
 
     bll = len(lista_galletas)
@@ -300,18 +297,39 @@ def startGame():
                     else:
                         jugador.rect.bottom = jugador.rect.bottom - 30
 
+        comidas_p = pygame.sprite.spritecollide(jugador, lista_galletas, True)
+        if len(comidas_p) > 0:
+            obj = comidas_p[0]
+            rect = (obj.rect.left, obj.rect.top, obj.rect.width, obj.rect.height)
+            socket.send_json({"tipo":"eat", "rect": rect})
+            r = socket.recv_json()
+            #sprites.lista.pop(index)
+            score = score + 1
 
-        # ALL EVENT PROCESSING SHOULD GO ABOVE THIS COMMENT
+
+
         # Pintar pantalla de negro
         screen.fill(black)
 
-        # Actualizar posicon de enemigos
-        socket.send_json({"tipo": "act_pos", "id":id_jug})
+        # Actualizar ---------------------------------------
+        socket.send_json({"tipo": "act", "id":id_jug})
         resp = socket.recv_json()
+        # Actualizar enemigos
         pos_ene = resp["pos_ene"]
         for enemigo in pos_ene:
             sprites.lista[index_ene[enemigo]].rect.left = pos_ene[enemigo][0]
             sprites.lista[index_ene[enemigo]].rect.top = pos_ene[enemigo][1]
+
+        # Actualizar galletas
+        elim_gall = resp["galletas"]
+        for galleta in elim_gall:
+            rect_g = pygame.Rect(galleta)
+            for sprt in sprites.lista:
+                if sprt.rect == rect_g:
+                    i = sprites.lista.index(sprt)
+                    sprites.lista[i].dib = False
+                    sprites.lista[i].rect.left = -50
+                    sprites.lista[i].rect.top = -50
 
         sprites.dibujar(screen)
         #gate.draw(screen)

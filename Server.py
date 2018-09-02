@@ -24,6 +24,7 @@ def main():
     ID = []
     posiciones = {} # Diccionario que almacena las posicones, la llave es el id del jugador
     jug_cont = 0
+    indx_g = []
     #players = {}
     while True:
         # Recibir mensaje
@@ -56,12 +57,21 @@ def main():
             posiciones[msg["id"]] = msg["pos_act"]
             socket.send_json({"resp": "OK"})
 
-        elif msg["tipo"] == "act_pos":
-            #print("posiciones: ", posiciones)
+        elif msg["tipo"] == "eat":
+            # Agregar a una lista, cuando se actualice, se ordena que se elimine
+            indx_g.append(msg["rect"])
+            socket.send_json({"resp": "OK"})
+
+        elif msg["tipo"] == "act":
+            # Actualizar posicones
             temp = posiciones[msg["id"]]
             posiciones.pop(msg["id"])
-            socket.send_json({"resp": "OK", "pos_ene": posiciones})
+            socket.send_json({"resp": "OK", "pos_ene": posiciones, "galletas":indx_g})
+
+            # Eliminar galletas consumidas
             posiciones[msg["id"]] = temp
+
+
 
 if __name__ == '__main__':
     main()
