@@ -1,31 +1,68 @@
 import zmq
 import sys
-import pygame
+import json
+import random
 
+# Posiciones establecidas para los jugadores
+# Se establece 7 posiciones, siendo el recomendable 4. (Saturación imagen)
+posiciones_jug = [(8, 8), (566, 8), (8, 566), (566, 566), (287, 271), (6, 306), (566, 306)]
 
 def main():
-    if len(sys.argv) != 1:
-        print("Must be called with no arguments")
+    if len(sys.argv) != 2:
+        print("Debe definir cantidad de jugadores")
         exit()
 
     context = zmq.Context()
-    socket = context.socket(zmq.ROUTER)
+    socket = context.socket(zmq.REP)
     socket.bind("tcp://*:4444")
 
-    print("Started server")
+    print("Iniciando servidor")
+    cant_jug = int(sys.argv[1]) # Suministrado desde consola
 
-    players = {}
+    # Cantidad de jugadores y sus posicones
+    posiciones_t = posiciones_jug[:cant_jug] # Extraer n posiciones para cant_jug
+    ID = []
+    posiciones = {} # Diccionario que almacena las posicones, la llave es el id del jugador
+    jug_cont = 0
+    #players = {}
     while True:
-        ident, dest, msg = socket.recv_multipart()
-        data = msg.decode("utf-8").split("$")
-        print("Message received from {}".format(ident))
-        print (dest, msg)
-        if data[0] == "connect":
-            print(players)
-            players[ident] = True
-            socket.send_multipart([msg, ident, dest])
-        if data[0] == "Izquierda":
-            socket.send_multipart([msg, ident, dest])
+        # Recibir mensaje
+        msg = socket.recv_json()
+        if msg["tipo"] == "connect" and jug_cont < cant_jug:
+            print("Recibi una conexión")
+
+            # Darle una posicion al jugador que se conecta
+            index = random.randrange(len(posiciones_t))
+            pos = posiciones_t[index]
+            del posiciones_t[index]
+            jug_cont = jug_cont + 1
+
+            # Almacener el id del jugador
+            ID.append(msg["id"])
+
+            # Almacenar posicion del jugador en Diccionario
+            posiciones[msg["id"]] = pos
+
+            socket.send_json({"resp":"connect", "pos":pos})
+
+        # Cuando un jugador desea iniciar pero no se han conectado todos los jugadores
+        elif msg["tipo"] == "init":
+            if not(jug_cont == cant_jug):
+                socket.send_json({"resp":"No", "cant": jug_cont})
+            else:
+                socket.send_json({"resp":"Si", "cant": jug_cont})
+
+
+        #ident, dest, msg = socket.recv_multipart()
+        #data = msg.decode("utf-8").split("$")
+        #print("Message received from {}".format(ident))
+        #print (dest, msg)
+        #if data[0] == "connect":
+        #    print(players)
+        #    players[ident] = True
+        #    socket.send_multipart([msg, ident, dest])
+        #if data[0] == "Izquierda":
+        #    socket.send_multipart([msg, ident, dest])
 
 if __name__ == '__main__':
     main()

@@ -15,7 +15,9 @@ pacman = pygame.image.load('images/pacman.png')
 pygame.display.set_icon(pacman)
 pygame.mixer.init()
 pygame.mixer.music.load('pacman.mp3')
-pygame.mixer.music.play(-1, 0.0)
+#pygame.mixer.music.play(-1, 0.0)
+
+context = zmq.Context()
 
 # Clase para representar el juego
 class Muro():
@@ -29,7 +31,7 @@ class Muro():
         self.y = y
         self.w = width
         self.h = height
-        self.draw = True
+        self.dib = True
 
 class Galleta_p():
     def __init__(self, color, width, height):
@@ -37,7 +39,7 @@ class Galleta_p():
         self.rect = self.image.get_rect()
         self.image.fill(white)
         pygame.draw.ellipse(self.image, color, [0, 0, width, height])
-        self.draw = True
+        self.dib = True
 
 # Creando los jugadores
 class Jugador():
@@ -46,9 +48,12 @@ class Jugador():
     change_y = 0
 
     def __init__(self, filename):
-        self.image = pygame.image.load(filename).convert()
+        self.image = pygame.image.load(filename)
         self.rect = self.image.get_rect()
-        self.draw = False
+        self.dib = False # Variable que determine si se dibuja en pantalla
+
+    def camb_dib(self):
+        self.dib = not self.dib
 
     def act_pos(self, pos):
         self.rect.left = pos[0]
@@ -68,7 +73,7 @@ class Sprites():
 
     def dibujar(self, screen):
         for sprite in self.lista:
-            if sprite.draw:
+            if sprite.dib:
                 screen.blit(sprite.image, sprite.rect)
 
 #---------------------
@@ -130,18 +135,6 @@ def paredes():
         lista_paredes.append(wall)
     return lista_paredes
 
-
-
-# Parametros iniciales
-pygame.init()
-screen = pygame.display.set_mode([606, 606])
-pygame.display.set_caption('Pacman')
-background = pygame.Surface(screen.get_size())
-background.fill(black)
-clock = pygame.time.Clock()
-pygame.font.init()
-font = pygame.font.Font("freesansbold.ttf", 24)
-
 def startGame():
     sprites = Sprites()
 
@@ -163,7 +156,7 @@ def startGame():
             else:
                 galleta = Galleta_p(yellow, 4, 4)
 
-            # Definir posicion galleta pequeña
+            # Definir posicion gposiciones_jugalleta pequeña
             galleta.rect.x = (30*column+6)+26
             galleta.rect.y = (30*row+6)+26
             if hay_muro((galleta.rect.x, galleta.rect.y), lista_paredes):
@@ -176,7 +169,54 @@ def startGame():
     bll = len(lista_galletas)
     score = -1
     done = False
-    i = 0
+
+    # CONECTARSE CON EL SERVIDOR
+    socket = context.socket(zmq.REQ)
+    socket.connect("tcp://localhost:4444")
+
+    # Manifestar conexión
+    socket.send_json({"tipo":"connect", "id":sys.argv[1]})
+
+    # Recibir mensaje, debe ser tipo OK y contener la posicion si fue correcto
+    resp = socket.recv_json()
+    print("RESPUESTA: ", resp)
+    if resp["resp"] == "connect":
+        # Establecer posicon del jugador
+        jugador.act_pos(resp["pos"])
+        # Cambiar estado, se puede dibujar en pantalla al jugador
+        jugador.camb_dib()
+
+        # Solicitar inicio de juego
+        resp_i = "No" # Mandar constantemente mensajes
+        cant_i = 0 # Conectados al momento
+        print("Esperando los otros jugadores para iniciar partida...")
+        while resp_i == "No":
+            socket.send_json({"tipo":"init"})
+            resp = socket.recv_json()
+            resp_i = resp["resp"]
+            cant_a = cant_i # cant_a -> Cantidad recibida actualmente
+            cant_i = resp["cant"] # Recibir cantidad nueva
+
+            if resp_i == "No" and not(cant_i == cant_a):
+                print("Se conecto un nuevo jugador ({0})".format(cant_i))
+            elif resp_i == "Si":
+                print("SE CONECTARON TODOS LOS JUGADORES...")
+                print("Iniciando...")
+
+        # Iniciar graficos
+        pygame.init()
+        screen = pygame.display.set_mode([606, 606])
+        pygame.display.set_caption('Pacman')
+        background = pygame.Surface(screen.get_size())
+        background.fill(black)
+        clock = pygame.time.Clock()
+        pygame.font.init()
+        font = pygame.font.Font("freesansbold.ttf", 24)
+
+    else:
+        print("OCURRIO UN ERROR AL CONECTARSE")
+        exit()
+
 
     while done == False:
         for event in pygame.event.get():
