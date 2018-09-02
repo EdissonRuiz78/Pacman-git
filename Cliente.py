@@ -43,22 +43,48 @@ class Galleta_p():
 
 # Creando los jugadores
 class Jugador():
-    # Velocidad de cambio
-    change_x = 0
-    change_y = 0
-
     def __init__(self, filename):
         self.image = pygame.image.load(filename)
         self.rect = self.image.get_rect()
         self.dib = False # Variable que determine si se dibuja en pantalla
 
+    # Metodo para cambiar variable de dibujo
     def camb_dib(self):
         self.dib = not self.dib
 
+    # Metodo para retornar posicion
+    def ret_pos(self):
+        return (self.rect.left, self.rect.top)
+
+    # Metodo para actualizar posicion
     def act_pos(self, pos):
         self.rect.left = pos[0]
         self.rect.top = pos[1]
+        self.x = self.rect.left
+        self.y = self.rect.top
 
+    # Metodo que indica si se puede hacer movimiento por parte del jugador
+    def camb_pos(self, dire, muros):
+        if dire == "derecha":
+            if not hay_muro((self.rect.right + 30, self.y), muros):
+                return True
+            else:
+                return False
+        elif dire == "izquierda":
+            if not hay_muro((self.rect.left - 30, self.y), muros):
+                return True
+            else:
+                return False
+        elif dire == "arriba":
+            if not hay_muro((self.x, self.rect.top - 30), muros):
+                return True
+            else:
+                return False
+        elif dire == "abajo":
+            if not hay_muro((self.x, self.rect.bottom + 30), muros):
+                return True
+            else:
+                return False
 
 class Sprites():
     def __init__(self):
@@ -72,6 +98,11 @@ class Sprites():
         self.lista.append(elem)
         return self.lista.index(elem)
 
+    def actualizar(self, elem):
+        index = self.lista.index(elem)
+        self.lista[index].rect.left = elem.rect.left
+        self.lista[index].rect.top = elem.rect.top
+
     def dibujar(self, screen):
         for sprite in self.lista:
             if sprite.dib:
@@ -80,10 +111,14 @@ class Sprites():
 #---------------------
 # FUNCIONES
 
-# Saber si hay un muro
+# Determinar si hay colision entre dos objetos
+def hay_colision(pos, obj):
+    return (pos[0] >= obj.x and pos[0] <= obj.x + obj.h) and (pos[1] >= obj.y and pos[1] <= obj.y + obj.w)
+
+# Determina si un objeto choca contra uno de los muros
 def hay_muro(pos, muros):
     for muro in muros:
-        if (pos[0] >= muro.x and pos[0] <= muro.x + muro.h) and (pos[1] >= muro.y and pos[1] <= muro.y + muro.w):
+        if hay_colision(pos, muro):
             return True
     return False
 
@@ -145,6 +180,7 @@ def startGame():
     sprites.agregar_lista(lista_paredes)
 
   # Create the player paddle object
+    id_jug = sys.argv[1]
     jugador = Jugador("images/pacman.png")
     sprites.agregar(jugador)
 
@@ -176,7 +212,7 @@ def startGame():
     socket.connect("tcp://localhost:4444")
 
     # Manifestar conexión
-    socket.send_json({"tipo":"connect", "id":sys.argv[1]})
+    socket.send_json({"tipo":"connect", "id":id_jug})
 
     # Recibir mensaje, debe ser tipo OK y contener la posicion si fue correcto
     resp = socket.recv_json()
@@ -206,7 +242,7 @@ def startGame():
                 print("Iniciando...")
 
         # Agregar sprites enemigos
-        index_ene = []
+        index_ene = {}
         print("POS_ENE ", pos_ene)
         for enemigo in pos_ene:
             pos_en = pos_ene[enemigo]
@@ -214,12 +250,12 @@ def startGame():
             en.act_pos(pos_en)
             en.camb_dib()
             sprites.agregar(en)
-            index_ene.append(sprites.lista.index(en))
+            index_ene[enemigo] = sprites.lista.index(en)
 
         # Iniciar graficos
         pygame.init()
         screen = pygame.display.set_mode([606, 606])
-        pygame.display.set_caption('Pacman')
+        pygame.display.set_caption('Pacman ' + id_jug)
         background = pygame.Surface(screen.get_size())
         background.fill(black)
         clock = pygame.time.Clock()
@@ -237,46 +273,54 @@ def startGame():
                 done = True
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_LEFT:
-                    print("IZQ")
-                    #Pacman.changespeed(-30, 0)
+                    # Verificar si puede moverse a la izquierda
+                    if jugador.camb_pos("izquierda", lista_paredes):
+                        n_pos = jugador.ret_pos()
+                        n_pos = (n_pos[0] - 30, n_pos[1])
+                        jugador.act_pos(n_pos)
+                        sprites.actualizar(jugador)
+                        socket.send_json({"tipo":"movimiento", "pos_act": jugador.ret_pos(), "id":id_jug})
+                        resp = socket.recv_json()
                 if event.key == pygame.K_RIGHT:
-                    print("DER")
-                    #Pacman.changespeed(30, 0)
+                    # Verificar si puede moverse a la derecha
+                    if jugador.camb_pos("derecha", lista_paredes):
+                        n_pos = jugador.ret_pos()
+                        n_pos = (n_pos[0] + 30, n_pos[1])
+                        jugador.act_pos(n_pos)
+                        sprites.actualizar(jugador)
+                        socket.send_json({"tipo":"movimiento", "pos_act": jugador.ret_pos(), "id":id_jug})
+                        resp = socket.recv_json()
                 if event.key == pygame.K_UP:
-                    print("ARR")
-                    #Pacman.changespeed(0, -30)
+                    # Verificar si puede moverse arriba
+                    if jugador.camb_pos("arriba", lista_paredes):
+                        n_pos = jugador.ret_pos()
+                        n_pos = (n_pos[0], n_pos[1] - 30)
+                        jugador.act_pos(n_pos)
+                        sprites.actualizar(jugador)
+                        socket.send_json({"tipo":"movimiento", "pos_act": jugador.ret_pos(), "id":id_jug})
+                        resp = socket.recv_json()
                 if event.key == pygame.K_DOWN:
-                    print("ABA")
-                    #Pacman.changespeed(0, 30)
+                    if jugador.camb_pos("abajo", lista_paredes):
+                        n_pos = jugador.ret_pos()
+                        n_pos = (n_pos[0], n_pos[1] + 30)
+                        jugador.act_pos(n_pos)
+                        sprites.actualizar(jugador)
+                        socket.send_json({"tipo":"movimiento", "pos_act": jugador.ret_pos(), "id":id_jug})
+                        resp = socket.recv_json()
 
-            #if event.type == pygame.KEYUP:
-            #    if event.key == pygame.K_LEFT:
-                    #Pacman.changespeed(30, 0)
-            #    if event.key == pygame.K_RIGHT:
-                    #Pacman.changespeed(-30, 0)
-            #    if event.key == pygame.K_UP:
-                    #Pacman.changespeed(0, 30)
-            #    if event.key == pygame.K_DOWN:
-                    #Pacman.changespeed(0, -30)
 
         # ALL EVENT PROCESSING SHOULD GO ABOVE THIS COMMENT
-
-        # ALL GAME LOGIC SHOULD GO BELOW THIS COMMENT
-        #Pacman.update(lista_paredes)#, gate)
-        # p_turn = returned[0]
-        # p_steps = returned[1]
-
-        # See if the Pacman block has collided with anything.
-        #blocks_hit_list = pygame.sprite.spritecollide(Pacman, block_list, True)
-
-        # Check the list of collisions.
-        #if len(blocks_hit_list) > 0:
-        #    score += len(blocks_hit_list)
-
-            # ALL GAME LOGIC SHOULD GO ABOVE THIS COMMENT
-
-            # ALL CODE TO DRAW SHOULD GO BELOW THIS COMMENT
+        # Pintar pantalla de negro
         screen.fill(black)
+
+        # Actualizar posicon de enemigos
+        socket.send_json({"tipo": "act_pos", "id":id_jug})
+        resp = socket.recv_json()
+        pos_ene = resp["pos_ene"]
+        for enemigo in pos_ene:
+            sprites.lista[index_ene[enemigo]].rect.left = pos_ene[enemigo][0]
+            sprites.lista[index_ene[enemigo]].rect.top = pos_ene[enemigo][1]
+
         sprites.dibujar(screen)
         #gate.draw(screen)
         #all_sprites_list.draw(screen)
