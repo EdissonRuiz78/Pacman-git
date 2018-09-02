@@ -20,8 +20,9 @@ pygame.mixer.music.load('pacman.mp3')
 context = zmq.Context()
 
 # Clase para representar el juego
-class Muro():
+class Muro(pygame.sprite.Sprite):
     def __init__(self, x, y, width, height, color):
+        pygame.sprite.Sprite.__init__(self)
         self.image = pygame.Surface([width, height])
         self.rect = self.image.get_rect()
         self.image.fill(color)
@@ -42,8 +43,9 @@ class Galleta_p():
         self.dib = True
 
 # Creando los jugadores
-class Jugador():
+class Jugador(pygame.sprite.Sprite):
     def __init__(self, filename):
+        pygame.sprite.Sprite.__init__(self)
         self.image = pygame.image.load(filename)
         self.rect = self.image.get_rect()
         self.dib = False # Variable que determine si se dibuja en pantalla
@@ -62,29 +64,6 @@ class Jugador():
         self.rect.top = pos[1]
         self.x = self.rect.left
         self.y = self.rect.top
-
-    # Metodo que indica si se puede hacer movimiento por parte del jugador
-    def camb_pos(self, dire, muros):
-        if dire == "derecha":
-            if not hay_muro((self.rect.right + 30, self.y), muros):
-                return True
-            else:
-                return False
-        elif dire == "izquierda":
-            if not hay_muro((self.rect.left - 30, self.y), muros):
-                return True
-            else:
-                return False
-        elif dire == "arriba":
-            if not hay_muro((self.x, self.rect.top - 30), muros):
-                return True
-            else:
-                return False
-        elif dire == "abajo":
-            if not hay_muro((self.x, self.rect.bottom + 30), muros):
-                return True
-            else:
-                return False
 
 class Sprites():
     def __init__(self):
@@ -112,19 +91,24 @@ class Sprites():
 # FUNCIONES
 
 # Determinar si hay colision entre dos objetos
-def hay_colision(pos, obj):
-    return (pos[0] >= obj.x and pos[0] <= obj.x + obj.h) and (pos[1] >= obj.y and pos[1] <= obj.y + obj.w)
+#def hay_colision(pos, obj, ist=False):
+#    if ist:
+#        print("POS: ", pos, " OBJ: ", (obj.x, obj.y, obj.w, obj.h))
+#        print("RESUL: ")
+#        print(""), (pos[0] >= obj.x and pos[0] <= obj.x + obj.h) and (pos[1] >= obj.y and pos[1] <= obj.y + obj.w))
+#    return (pos[0] >= obj.x and pos[0] <= obj.x + obj.h) and (pos[1] >= obj.y and pos[1] <= obj.y + obj.w)
 
 # Determina si un objeto choca contra uno de los muros
-def hay_muro(pos, muros):
+def hay_muro(pos, muros, ist=False):
     for muro in muros:
-        if hay_colision(pos, muro):
+        if (pos[0] >= muro.x and pos[0] <= muro.x + muro.h) and (pos[1] >= muro.y and pos[1] <= muro.y + muro.w):
             return True
     return False
 
 # Creando el mapa
 def paredes():
     lista_paredes = []
+    lista_w = pygame.sprite.RenderPlain()
     # Muros representando la matriz asi: [x, y, width, height]
     muros = [[0, 0, 6, 600],
              [0, 0, 600, 6],
@@ -168,14 +152,15 @@ def paredes():
     # Loop creando los muros de la lista
     for muro in muros:
         wall = Muro(muro[0], muro[1], muro[2], muro[3], white)
+        lista_w.add(wall)
         lista_paredes.append(wall)
-    return lista_paredes
+    return lista_paredes, lista_w
 
 def startGame():
     sprites = Sprites()
 
     # Crear paredes
-    lista_paredes = paredes()
+    lista_paredes, lista_w = paredes()
     # Agregar cada sprite de pared a la lista de sprites
     sprites.agregar_lista(lista_paredes)
 
@@ -274,39 +259,46 @@ def startGame():
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_LEFT:
                     # Verificar si puede moverse a la izquierda
-                    if jugador.camb_pos("izquierda", lista_paredes):
-                        n_pos = jugador.ret_pos()
-                        n_pos = (n_pos[0] - 30, n_pos[1])
-                        jugador.act_pos(n_pos)
+                    rect_a = jugador.rect
+                    jugador.rect.left = jugador.rect.left - 30
+                    if not pygame.sprite.spritecollide(jugador, lista_w, False):
                         sprites.actualizar(jugador)
                         socket.send_json({"tipo":"movimiento", "pos_act": jugador.ret_pos(), "id":id_jug})
                         resp = socket.recv_json()
+                    else:
+                        jugador.rect.left = jugador.rect.left + 30
+                        sprites.actualizar(jugador)
                 if event.key == pygame.K_RIGHT:
                     # Verificar si puede moverse a la derecha
-                    if jugador.camb_pos("derecha", lista_paredes):
-                        n_pos = jugador.ret_pos()
-                        n_pos = (n_pos[0] + 30, n_pos[1])
-                        jugador.act_pos(n_pos)
+                    rect_a = jugador.rect
+                    jugador.rect.right = jugador.rect.right + 30
+                    if not pygame.sprite.spritecollide(jugador, lista_w, False):
                         sprites.actualizar(jugador)
                         socket.send_json({"tipo":"movimiento", "pos_act": jugador.ret_pos(), "id":id_jug})
                         resp = socket.recv_json()
+                    else:
+                        jugador.rect.right = jugador.rect.right - 30
+                        sprites.actualizar(jugador)
+
                 if event.key == pygame.K_UP:
                     # Verificar si puede moverse arriba
-                    if jugador.camb_pos("arriba", lista_paredes):
-                        n_pos = jugador.ret_pos()
-                        n_pos = (n_pos[0], n_pos[1] - 30)
-                        jugador.act_pos(n_pos)
+                    rect_a = jugador.rect
+                    jugador.rect.top = jugador.rect.top - 30
+                    if not pygame.sprite.spritecollide(jugador, lista_w, False):
                         sprites.actualizar(jugador)
                         socket.send_json({"tipo":"movimiento", "pos_act": jugador.ret_pos(), "id":id_jug})
                         resp = socket.recv_json()
+                    else:
+                        jugador.rect.top = jugador.rect.top + 30
                 if event.key == pygame.K_DOWN:
-                    if jugador.camb_pos("abajo", lista_paredes):
-                        n_pos = jugador.ret_pos()
-                        n_pos = (n_pos[0], n_pos[1] + 30)
-                        jugador.act_pos(n_pos)
+                    rect_a = jugador.rect
+                    jugador.rect.bottom = jugador.rect.bottom + 30
+                    if not pygame.sprite.spritecollide(jugador, lista_w, False):
                         sprites.actualizar(jugador)
                         socket.send_json({"tipo":"movimiento", "pos_act": jugador.ret_pos(), "id":id_jug})
                         resp = socket.recv_json()
+                    else:
+                        jugador.rect.bottom = jugador.rect.bottom - 30
 
 
         # ALL EVENT PROCESSING SHOULD GO ABOVE THIS COMMENT

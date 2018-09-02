@@ -57,7 +57,7 @@ def main():
             socket.send_json({"resp": "OK"})
 
         elif msg["tipo"] == "act_pos":
-            print("posiciones: ", posiciones)
+            #print("posiciones: ", posiciones)
             temp = posiciones[msg["id"]]
             posiciones.pop(msg["id"])
             socket.send_json({"resp": "OK", "pos_ene": posiciones})
