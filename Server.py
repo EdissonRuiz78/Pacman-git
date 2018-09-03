@@ -19,19 +19,33 @@ def main():
     print("Iniciando servidor")
     cant_jug = int(sys.argv[1]) # Suministrado desde consola
 
-    # Cantidad de jugadores y sus posicones
+    # Variable para jugadores
     posiciones_t = posiciones_jug[:cant_jug] # Extraer n posiciones para cant_jug
     ID = []
     posiciones = {} # Diccionario que almacena las posicones, la llave es el id del jugador
-    jug_cont = 0
+    jug_cont = 0 # Contador para controlar cuantos jugadores se conectaron
+
+    # Variables para controlar cambios de galletas
     indx_g = []
     conf_ini = []
+
+    # Variables para controlar conversion a fantasmas
     convertir = [False, None]
     cant_conv = 0
+
+    # Variables para controlar eliminacion de jugador
     eliminar = [False, None]
     cant_inf = 0
+
+    # Variables para controlar los puntos
+    cant_ga = 0
+    puntos_p = 0
+
+    # Variable para continuar ciclo
+    win = False
+    cant_w = 0 # Jugadores informados de la victoria
     # Posiciones de Galletas:
-    while True:
+    while not win:
         # Recibir mensaje
         msg = socket.recv_json()
         if msg["tipo"] == "connect" and jug_cont < cant_jug:
@@ -64,6 +78,8 @@ def main():
             if not(jug_cont == cant_jug):
                 socket.send_json({"resp":"No", "cant": jug_cont})
             else:
+                cant_ga = len(conf_ini) # Cantidad de galletas que serán comidas
+                puntos_p = cant_jug + cant_ga # Puntos totales que hay que alcanzar
                 socket.send_json({"resp":"Si", "cant": jug_cont, "pos_ene": posiciones, "conf_ini": conf_ini})
 
         elif msg["tipo"] == "movimiento":
@@ -73,6 +89,7 @@ def main():
         elif msg["tipo"] == "eat":
             # Agregar a una lista, cuando se actualice, se ordena que se elimine
             indx_g.append(msg["rect"])
+            puntos_p = puntos_p - 1
             socket.send_json({"resp": "OK"})
             # Si se comio la galleta especial
             if msg["esp"]:
@@ -80,44 +97,52 @@ def main():
 
         elif msg["tipo"] == "eat-ene":
             eliminar = [True, msg["id_en"]]
+            puntos_p = puntos_p - 1
             socket.send_json({"resp": "OK"})
 
         elif msg["tipo"] == "act":
-            # Actualizar posicones
-            temp = posiciones[msg["id"]]
-            posiciones.pop(msg["id"])
+             # Solo puede quedar un punto por hacer: el jugador sobreviviente
+            if not(puntos_p == 1):
+                # Actualizar posicones
+                temp = posiciones[msg["id"]]
+                posiciones.pop(msg["id"])
 
-            # Si alguien comio la galleta especial:
-            if convertir[0] and not(convertir[1] == msg["id"]):
-                conv = True
-                cant_conv = cant_conv + 1
+                # Si alguien comio la galleta especial:
+                if convertir[0] and not(convertir[1] == msg["id"]):
+                    conv = True
+                    cant_conv = cant_conv + 1
+                else:
+                    conv = False
+
+                # Si eliminan a jugador
+                if eliminar[0] and (eliminar[1] == msg["id"]):
+                    elim = True
+                    cant_inf = cant_inf + 1
+                else:
+                    elim = False
+
+                socket.send_json({"resp": "OK",
+                                  "pos_ene": posiciones,
+                                  "galletas":indx_g,
+                                  "convertir": conv,
+                                  "conv_t": convertir[0],
+                                  "elim": elim,
+                                  "elim_e": eliminar[1],
+                                  })
+
+                # Eliminar galletas consumidas
+                posiciones[msg["id"]] = temp
+
+                if cant_conv == cant_jug:
+                    convertir, cant_conv = [False, None], 0
+                if cant_inf == cant_jug:
+                    eliminar, cant_inf = [False, None], 0
             else:
-                conv = False
+                socket.send_json({"resp": "GANO"})
+                cant_w = cant_w + 1
 
-            # Si eliminan a jugador
-            if eliminar[0] and (eliminar[1] == msg["id"]):
-                elim = True
-                cant_inf = cant_inf + 1
-            else:
-                elim = False
-
-            socket.send_json({"resp": "OK",
-                              "pos_ene": posiciones,
-                              "galletas":indx_g,
-                              "convertir": conv,
-                              "conv_t": convertir[0],
-                              "elim": elim,
-                              "elim_e": eliminar[1],
-                              })
-
-            # Eliminar galletas consumidas
-            posiciones[msg["id"]] = temp
-
-            if cant_conv == cant_jug:
-                convertir, cant_conv = [False, None], 0
-            if cant_inf == cant_jug:
-                eliminar, cant_inf = [False, None], 0
-
+                if cant_w == cant_jug:
+                    win = True
 
 if __name__ == '__main__':
     main()

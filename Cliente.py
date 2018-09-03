@@ -294,7 +294,7 @@ def startGame():
         clock = pygame.time.Clock()
         pygame.font.init()
         font = pygame.font.Font("freesansbold.ttf", 24)
-        done = False
+        win = False
         score = 0
 
     else:
@@ -302,7 +302,7 @@ def startGame():
         exit()
 
 
-    while done == False:
+    while not win:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 done = True
@@ -377,57 +377,65 @@ def startGame():
         socket.send_json({"tipo": "act", "id":ide})
         resp = socket.recv_json()
 
-        # Convertir a fantasmas de ser el caso
-        if resp["convertir"]:
-            jugador.conv = True
-            jugador.camb_img(fantasma_img)
+        if not(resp["resp"] == "GANO"):
+            # Convertir a fantasmas de ser el caso
+            if resp["convertir"]:
+                jugador.conv = True
+                jugador.camb_img(fantasma_img)
 
-        # Actualizar enemigos
-        pos_ene = resp["pos_ene"]
-        for enemigo in pos_ene:
-            sprites.lista[index_ene[enemigo]].rect.left = pos_ene[enemigo][0]
-            sprites.lista[index_ene[enemigo]].rect.top = pos_ene[enemigo][1]
-            if not(resp["convertir"]):
-                if resp["conv_t"]:
-                    jugador.eneconv = True
-                    sprites.lista[index_ene[enemigo]].conv = True
-                    sprites.lista[index_ene[enemigo]].camb_img(fantasma_ene_img)
+            # Actualizar enemigos
+            pos_ene = resp["pos_ene"]
+            for enemigo in pos_ene:
+                sprites.lista[index_ene[enemigo]].rect.left = pos_ene[enemigo][0]
+                sprites.lista[index_ene[enemigo]].rect.top = pos_ene[enemigo][1]
+                if not(resp["convertir"]):
+                    if resp["conv_t"]:
+                        jugador.eneconv = True
+                        sprites.lista[index_ene[enemigo]].conv = True
+                        sprites.lista[index_ene[enemigo]].camb_img(fantasma_ene_img)
 
-        # Actualizar galletas
-        elim_gall = resp["galletas"]
-        for galleta in elim_gall:
-            rect_g = pygame.Rect(galleta)
-            for sprt in sprites.lista:
-                if sprt.rect == rect_g:
-                    i = sprites.lista.index(sprt)
-                    sprites.lista[i].dib = False
-                    sprites.lista[i].rect.left = -50
-                    sprites.lista[i].rect.top = -50
+            # Actualizar galletas
+            elim_gall = resp["galletas"]
+            for galleta in elim_gall:
+                rect_g = pygame.Rect(galleta)
+                for sprt in sprites.lista:
+                    if sprt.rect == rect_g:
+                        i = sprites.lista.index(sprt)
+                        sprites.lista[i].dib = False
+                        sprites.lista[i].rect.left = -50
+                        sprites.lista[i].rect.top = -50
 
-        # Verificar eliminados:
-        if resp["elim"]:
-            #sprites.lista.remove(jugador)
-            jugador.elim = True
+            # Verificar eliminados:
+            if resp["elim"]:
+                #sprites.lista.remove(jugador)
+                jugador.elim = True
 
-        # Eliminar enemigos
-        if resp["elim_e"] != None and resp["elim_e"] != jugador.ide:
-            sprites.eliminar(resp["elim_e"])
+            # Eliminar enemigos
+            if resp["elim_e"] != None and resp["elim_e"] != jugador.ide:
+                sprites.eliminar(resp["elim_e"])
 
-        sprites.dibujar(screen)
-        text = font.render("Score: "+str(score)+"/"+str(bll), True, red)
-        if not jugador.elim:
-            screen.blit(text, [10, 10])
+            sprites.dibujar(screen)
+            text = font.render("Score: "+str(score)+"/"+str(bll), True, red)
+            if not jugador.elim:
+                screen.blit(text, [10, 10])
+            else:
+                text_e = font.render("ESTAS ELIMINADO. ESPERA", True, red)
+                screen.blit(text_e, [10, 10])
+
+            pygame.display.flip()
+
+            clock.tick(10)
         else:
-            text_e = font.render("ESTAS ELIMINADO. ESPERA", True, red)
-            screen.blit(text_e, [10, 10])
+            if not jugador.elim:
+                text_w = font.render("FELICITACIONES GANASTE", True, red)
+                screen.blit(text_w, [10, 303])
+            else:
+                text_l = font.render("LASTIMA. PERDISTE", True, red)
+                screen.blit(text_l, [10, 303])
 
-        if score == bll:
-            print("Gano")
-            break
-
-        pygame.display.flip()
-
-        clock.tick(10)
+            pygame.display.flip()
+            clock.tick(0.4)
+            win = True
 
 def main():
     startGame()
