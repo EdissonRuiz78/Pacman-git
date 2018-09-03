@@ -16,7 +16,9 @@ yellow = (255, 255, 0)
 pacman_img = 'images/pacman.png'
 pacman_ene_img = "images/pacman-ene.png"
 fantasma_img = 'images/fantasma.png'
+jug_img = [pacman_img, fantasma_img]
 fantasma_ene_img = "images/fantasma-ene.png"
+ene_img = [pacman_ene_img, fantasma_ene_img]
 
 #pygame.display.set_icon(pacman_img)
 pygame.mixer.init()
@@ -66,6 +68,9 @@ class Jugador(pygame.sprite.Sprite):
         self.elim = False
 
     def camb_img(self, filename):
+        #if type(filename) == type([]):
+        #    self.image = pygame.image.load(filename[int(not self.conv)])
+        #else:
         self.image = pygame.image.load(filename)
 
     # Metodo para cambiar variable de dibujo
@@ -83,6 +88,12 @@ class Jugador(pygame.sprite.Sprite):
         self.x = self.rect.left
         self.y = self.rect.top
 
+    def colision(self, lista):
+        for elem in lista:
+            if self.rect.colliderect(elem.rect):
+                return elem
+        return False
+
 class Sprites():
     def __init__(self):
         self.lista = []
@@ -99,9 +110,6 @@ class Sprites():
         index = self.lista.index(elem)
         self.lista[index].rect.left = elem.rect.left
         self.lista[index].rect.top = elem.rect.top
-
-    def buscar(self, sprite):
-        self.lista[self.lista.index(sprite)].dib = False
 
     def eliminar(self, ide):
         for elem in self.lista:
@@ -167,6 +175,13 @@ def paredes():
         lista_paredes.append(wall)
     return lista_paredes, lista_w
 
+def buscar(lista, ide):
+    for elem in lista:
+        if elem.ide == ide:
+            return lista.index(elem)
+    else:
+        return -1
+
 def startGame():
     sprites = Sprites()
 
@@ -212,7 +227,7 @@ def startGame():
                       galleta = Galleta_p(yellow, 4, 4)
                       # Determinar si es la galleta especial
                       if not esp:
-                          randg = random.randrange(20)
+                          randg = random.randrange(50)
                           if randg == 0:
                               galleta = Galleta_p(red, 4, 4)
                               print("La especial")
@@ -360,13 +375,16 @@ def startGame():
                 r = socket.recv_json()
                 #sprites.lista.pop(index)
                 score = score + 1
+                comidas_p = []
 
         # En caso de comer al enemigo
         if jugador.eneconv:
-            comidos_e = pygame.sprite.spritecollide(jugador, lista_e, True)
-            if len(comidos_e) > 0:
-                obj_e = comidos_e[0]
+            comidos = jugador.colision(lista_e)#pygame.sprite.spritecollide(jugador, lista_e, True)
+            #print("Enemigos comidos: ", comidos_e)
+            if comidos:
+                obj_e = comidos
                 id_en = obj_e.ide
+                print("ME COMI UNO")
                 socket.send_json({"tipo":"eat-ene", "id_en": id_en, "ide": ide})
                 r = socket.recv_json()
 
@@ -377,11 +395,15 @@ def startGame():
         socket.send_json({"tipo": "act", "id":ide})
         resp = socket.recv_json()
 
-        if not(resp["resp"] == "GANO"):
+        if not(resp["resp"] == "GANO") and not(resp["resp"] == "eliminado"):
             # Convertir a fantasmas de ser el caso
             if resp["convertir"]:
                 jugador.conv = True
                 jugador.camb_img(fantasma_img)
+            elif resp["reconv"]:
+                jugador.conv = False
+                jugador.camb_img(pacman_img)
+                sprites.actualizar(jugador)
 
             # Actualizar enemigos
             pos_ene = resp["pos_ene"]
@@ -391,8 +413,17 @@ def startGame():
                 if not(resp["convertir"]):
                     if resp["conv_t"]:
                         jugador.eneconv = True
-                        sprites.lista[index_ene[enemigo]].conv = True
-                        sprites.lista[index_ene[enemigo]].camb_img(fantasma_ene_img)
+                        index = buscar(sprites.lista, enemigo)
+                        if index >= 0:
+                            sprites.lista[index].conv = True
+                            sprites.lista[index].camb_img(fantasma_ene_img)
+                    elif resp["reconv"]:
+                        jugador.eneconv = False
+                        index = buscar(sprites.lista, enemigo)
+                        if index >= 0:
+                            sprites.lista[index].conv = False
+                            sprites.lista[index].camb_img(pacman_ene_img)
+
 
             # Actualizar galletas
             elim_gall = resp["galletas"]
@@ -412,6 +443,7 @@ def startGame():
 
             # Eliminar enemigos
             if resp["elim_e"] != None and resp["elim_e"] != jugador.ide:
+                lista_e.remove(sprites.lista[buscar(sprites.lista, resp["elim_e"])])
                 sprites.eliminar(resp["elim_e"])
 
             sprites.dibujar(screen)
