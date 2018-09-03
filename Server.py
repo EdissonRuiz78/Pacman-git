@@ -131,6 +131,7 @@ def main():
 
                     # Si alguien comio la galleta especial:
                     if c.convertir[0] and not(c.convertir[1] == msg["id"]):
+                        c.reconv = False
                         conv = True
                         cant_conv = cant_conv + 1
                     else:

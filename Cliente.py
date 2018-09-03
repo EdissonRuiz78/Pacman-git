@@ -68,9 +68,6 @@ class Jugador(pygame.sprite.Sprite):
         self.elim = False
 
     def camb_img(self, filename):
-        #if type(filename) == type([]):
-        #    self.image = pygame.image.load(filename[int(not self.conv)])
-        #else:
         self.image = pygame.image.load(filename)
 
     # Metodo para cambiar variable de dibujo
@@ -217,7 +214,8 @@ def startGame():
         if "conf" in resp:
             # Agregar las galletas pequeñas
             rand = 5
-            esp = False
+            esp = 3 #False
+            cont_esp = 0
             lista_g = []
             for row in range(19):
               for column in range(19):
@@ -226,13 +224,14 @@ def startGame():
                   else:
                       galleta = Galleta_p(yellow, 4, 4)
                       # Determinar si es la galleta especial
-                      if not esp:
+                      if cont_esp < esp:#not esp:
                           randg = random.randrange(50)
                           if randg == 0:
                               galleta = Galleta_p(red, 4, 4)
                               print("La especial")
                               galleta.esp = True
-                              esp = True
+                              cont_esp = cont_esp + 1
+                              #esp = True
 
                   # Definir posicion galleta pequeña
                   galleta.rect.x = (30*column+6)+26
@@ -242,12 +241,13 @@ def startGame():
                           pos = (galleta.rect.left, galleta.rect.top)
                           print(pos)
                           if not(pos != (8, 8) and pos != (566, 8) and pos != (8, 566) and pos != (566, 566) and pos != (287, 271) and pos != (6, 306) and pos != (566, 306)):
-                              esp = False
+                              cont_esp = cont_esp - 1
+                              #esp = False
                       rect = [galleta.rect.x, galleta.rect.y, galleta.color]
                       lista_g.append(rect)
                   elif galleta.esp:
-                      esp = False
-                      #sprites.agregar(galleta)
+                      cont_esp = cont_esp - 1
+                      #esp = False
 
             #bll = len(lista_g)
             socket.send_json({"tipo":"conf_ini", "rect_ga": lista_g})
