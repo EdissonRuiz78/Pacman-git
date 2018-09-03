@@ -12,8 +12,15 @@ red = (255, 0, 0)
 purple = (255, 0, 255)
 yellow = (255, 255, 0)
 
-pacman = pygame.image.load('images/pacman.png')
-pygame.display.set_icon(pacman)
+# Cargar Imagenes
+pacman_img = 'images/pacman.png'
+pacman_ene_img = "images/pacman-ene.png"
+fantasma_img = ['images/Blinky.png',
+                "images/Inky.png",
+                "images/Clyde.png",
+                "images/Pinky.png"]
+
+#pygame.display.set_icon(pacman_img)
 pygame.mixer.init()
 pygame.mixer.music.load('pacman.mp3')
 #pygame.mixer.music.play(-1, 0.0)
@@ -53,6 +60,9 @@ class Jugador(pygame.sprite.Sprite):
         self.image = pygame.image.load(filename)
         self.rect = self.image.get_rect()
         self.dib = False # Variable que determine si se dibuja en pantalla
+
+    def camb_img(self, filename):
+        self.image = pygame.image.load(filename)
 
     # Metodo para cambiar variable de dibujo
     def camb_dib(self):
@@ -158,7 +168,7 @@ def startGame():
 
   # Create the player paddle object
     id_jug = sys.argv[1]
-    jugador = Jugador("images/pacman.png")
+    jugador = Jugador(pacman_img)
     sprites.agregar(jugador)
 
     # CONECTARSE CON EL SERVIDOR
@@ -242,7 +252,7 @@ def startGame():
         print("POS_ENE ", pos_ene)
         for enemigo in pos_ene:
             pos_en = pos_ene[enemigo]
-            en = Jugador("images/pacman.png")
+            en = Jugador(pacman_ene_img)
             en.act_pos(pos_en)
             en.camb_dib()
             sprites.agregar(en)
