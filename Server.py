@@ -26,6 +26,8 @@ def main():
     jug_cont = 0
     indx_g = []
     conf_ini = []
+    convertir = [False, None]
+    cant_conv = 0
     # Posiciones de Galletas:
     while True:
         # Recibir mensaje
@@ -70,16 +72,32 @@ def main():
             # Agregar a una lista, cuando se actualice, se ordena que se elimine
             indx_g.append(msg["rect"])
             socket.send_json({"resp": "OK"})
+            # Si se comio la galleta especial
+            if msg["esp"]:
+                print("El jugador {0} se comio la especial".format(msg["id"]))
+                convertir = [True, msg["id"]]
 
         elif msg["tipo"] == "act":
             # Actualizar posicones
             temp = posiciones[msg["id"]]
             posiciones.pop(msg["id"])
-            socket.send_json({"resp": "OK", "pos_ene": posiciones, "galletas":indx_g})
+            # Si alguien comio la galleta especial:
+            if convertir[0]:
+                if convertir[1] == msg["id"]:
+                    conv = False
+                else:
+                    conv = True
+                cant_conv = cant_conv + 1
+            else:
+                conv = False
+            #print("Enviar: ", conv)
+            socket.send_json({"resp": "OK", "pos_ene": posiciones, "galletas":indx_g, "convertir": conv, "conv_t": convertir[0]})
 
             # Eliminar galletas consumidas
             posiciones[msg["id"]] = temp
 
+            if cant_conv == cant_jug:
+                convertir, cant_conv = [False, None], 0
 
 
 if __name__ == '__main__':

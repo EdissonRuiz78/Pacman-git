@@ -15,10 +15,8 @@ yellow = (255, 255, 0)
 # Cargar Imagenes
 pacman_img = 'images/pacman.png'
 pacman_ene_img = "images/pacman-ene.png"
-fantasma_img = ['images/Blinky.png',
-                "images/Inky.png",
-                "images/Clyde.png",
-                "images/Pinky.png"]
+fantasma_img = 'images/fantasma.png'
+fantasma_ene_img = "images/fantasma-ene.png"
 
 #pygame.display.set_icon(pacman_img)
 pygame.mixer.init()
@@ -60,6 +58,7 @@ class Jugador(pygame.sprite.Sprite):
         self.image = pygame.image.load(filename)
         self.rect = self.image.get_rect()
         self.dib = False # Variable que determine si se dibuja en pantalla
+        self.conv = False
 
     def camb_img(self, filename):
         self.image = pygame.image.load(filename)
@@ -264,6 +263,8 @@ def startGame():
             galleta = Galleta_p(rect[2], 4, 4)
             galleta.rect.x = rect[0]
             galleta.rect.y = rect[1]
+            if rect[2] == list(red):
+                galleta.esp = True
             lista_galletas.add(galleta)
             sprites.agregar(galleta)
 
@@ -334,16 +335,16 @@ def startGame():
                     else:
                         jugador.rect.bottom = jugador.rect.bottom - 30
 
-        comidas_p = pygame.sprite.spritecollide(jugador, lista_galletas, True)
-        if len(comidas_p) > 0:
-            obj = comidas_p[0]
-            rect = (obj.rect.left, obj.rect.top, obj.rect.width, obj.rect.height)
-            socket.send_json({"tipo":"eat", "rect": rect})
-            r = socket.recv_json()
-            #sprites.lista.pop(index)
-            score = score + 1
-
-
+        # Galletas comidas
+        if not jugador.conv:
+            comidas_p = pygame.sprite.spritecollide(jugador, lista_galletas, True)
+            if len(comidas_p) > 0:
+                obj = comidas_p[0]
+                rect = (obj.rect.left, obj.rect.top, obj.rect.width, obj.rect.height)
+                socket.send_json({"tipo":"eat", "rect": rect, "esp": obj.esp, "id": id_jug})
+                r = socket.recv_json()
+                #sprites.lista.pop(index)
+                score = score + 1
 
         # Pintar pantalla de negro
         screen.fill(black)
@@ -351,11 +352,21 @@ def startGame():
         # Actualizar ---------------------------------------
         socket.send_json({"tipo": "act", "id":id_jug})
         resp = socket.recv_json()
+
+        # Convertir a fantasmas de ser el caso
+        if resp["convertir"]:
+            jugador.conv = True
+            jugador.camb_img(fantasma_img)
+
         # Actualizar enemigos
         pos_ene = resp["pos_ene"]
         for enemigo in pos_ene:
             sprites.lista[index_ene[enemigo]].rect.left = pos_ene[enemigo][0]
             sprites.lista[index_ene[enemigo]].rect.top = pos_ene[enemigo][1]
+            if not(resp["convertir"]):
+                if resp["conv_t"]:
+                    sprites.lista[index_ene[enemigo]].conv = True
+                    sprites.lista[index_ene[enemigo]].camb_img(fantasma_ene_img)
 
         # Actualizar galletas
         elim_gall = resp["galletas"]
@@ -369,9 +380,6 @@ def startGame():
                     sprites.lista[i].rect.top = -50
 
         sprites.dibujar(screen)
-        #gate.draw(screen)
-        #all_sprites_list.draw(screen)
-        #monsta_list.draw(screen)
         text = font.render("Score: "+str(score)+"/"+str(bll), True, red)
         screen.blit(text, [10, 10])
 
