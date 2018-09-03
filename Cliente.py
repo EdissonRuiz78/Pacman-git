@@ -39,6 +39,7 @@ class Muro(pygame.sprite.Sprite):
         self.w = width
         self.h = height
         self.dib = True
+        self.ide = ""
 
 class Galleta_p(pygame.sprite.Sprite):
     def __init__(self, color, width, height):
@@ -50,15 +51,19 @@ class Galleta_p(pygame.sprite.Sprite):
         self.dib = True
         self.color = color
         self.esp = False
+        self.ide = ""
 
 # Creando los jugadores
 class Jugador(pygame.sprite.Sprite):
-    def __init__(self, filename):
+    def __init__(self, filename, ide):
         pygame.sprite.Sprite.__init__(self)
         self.image = pygame.image.load(filename)
         self.rect = self.image.get_rect()
+        self.ide = ide
         self.dib = False # Variable que determine si se dibuja en pantalla
         self.conv = False
+        self.eneconv = False
+        self.elim = False
 
     def camb_img(self, filename):
         self.image = pygame.image.load(filename)
@@ -97,6 +102,11 @@ class Sprites():
 
     def buscar(self, sprite):
         self.lista[self.lista.index(sprite)].dib = False
+
+    def eliminar(self, ide):
+        for elem in self.lista:
+            if elem.ide == ide:
+                self.lista.remove(elem)
 
     def dibujar(self, screen):
         for sprite in self.lista:
@@ -166,8 +176,8 @@ def startGame():
     sprites.agregar_lista(lista_paredes)
 
   # Create the player paddle object
-    id_jug = sys.argv[1]
-    jugador = Jugador(pacman_img)
+    ide = sys.argv[1]
+    jugador = Jugador(pacman_img, ide)
     sprites.agregar(jugador)
 
     # CONECTARSE CON EL SERVIDOR
@@ -175,7 +185,7 @@ def startGame():
     socket.connect("tcp://localhost:4444")
 
     # Manifestar conexión
-    socket.send_json({"tipo":"connect", "id":id_jug})
+    socket.send_json({"tipo":"connect", "id":ide})
 
     # Recibir mensaje, debe ser tipo OK y contener la posicion si fue correcto
     resp = socket.recv_json()
@@ -248,14 +258,19 @@ def startGame():
 
         # Agregar sprites enemigos
         index_ene = {}
-        print("POS_ENE ", pos_ene)
+        lista_e = pygame.sprite.RenderPlain()
         for enemigo in pos_ene:
-            pos_en = pos_ene[enemigo]
-            en = Jugador(pacman_ene_img)
-            en.act_pos(pos_en)
-            en.camb_dib()
-            sprites.agregar(en)
-            index_ene[enemigo] = sprites.lista.index(en)
+            if not(enemigo == jugador.ide):
+                pos_en = pos_ene[enemigo]
+                en = Jugador(pacman_ene_img, enemigo)
+                en.act_pos(pos_en)
+                en.camb_dib()
+                sprites.agregar(en)
+                lista_e.add(en)
+                index_ene[enemigo] = sprites.lista.index(en)
+        print("ENEMIGOS: ")
+        for i, ene in enumerate(lista_e):
+            print (i+1, ". ", ene.ide)
 
         # Agregar mapa de galletas
         lista_g = resp["conf_ini"]
@@ -273,7 +288,7 @@ def startGame():
         # Iniciar graficos
         pygame.init()
         screen = pygame.display.set_mode([606, 606])
-        pygame.display.set_caption('Pacman ' + id_jug)
+        pygame.display.set_caption('Pacman ' + ide)
         background = pygame.Surface(screen.get_size())
         background.fill(black)
         clock = pygame.time.Clock()
@@ -291,14 +306,14 @@ def startGame():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 done = True
-            if event.type == pygame.KEYDOWN:
+            if event.type == pygame.KEYDOWN and not(jugador.elim):
                 if event.key == pygame.K_LEFT:
                     # Verificar si puede moverse a la izquierda
                     rect_a = jugador.rect
                     jugador.rect.left = jugador.rect.left - 30
                     if not pygame.sprite.spritecollide(jugador, lista_w, False):
                         sprites.actualizar(jugador)
-                        socket.send_json({"tipo":"movimiento", "pos_act": jugador.ret_pos(), "id":id_jug})
+                        socket.send_json({"tipo":"movimiento", "pos_act": jugador.ret_pos(), "id":ide})
                         resp = socket.recv_json()
                     else:
                         jugador.rect.left = jugador.rect.left + 30
@@ -309,7 +324,7 @@ def startGame():
                     jugador.rect.right = jugador.rect.right + 30
                     if not pygame.sprite.spritecollide(jugador, lista_w, False):
                         sprites.actualizar(jugador)
-                        socket.send_json({"tipo":"movimiento", "pos_act": jugador.ret_pos(), "id":id_jug})
+                        socket.send_json({"tipo":"movimiento", "pos_act": jugador.ret_pos(), "id":ide})
                         resp = socket.recv_json()
                     else:
                         jugador.rect.right = jugador.rect.right - 30
@@ -321,7 +336,7 @@ def startGame():
                     jugador.rect.top = jugador.rect.top - 30
                     if not pygame.sprite.spritecollide(jugador, lista_w, False):
                         sprites.actualizar(jugador)
-                        socket.send_json({"tipo":"movimiento", "pos_act": jugador.ret_pos(), "id":id_jug})
+                        socket.send_json({"tipo":"movimiento", "pos_act": jugador.ret_pos(), "id":ide})
                         resp = socket.recv_json()
                     else:
                         jugador.rect.top = jugador.rect.top + 30
@@ -330,27 +345,36 @@ def startGame():
                     jugador.rect.bottom = jugador.rect.bottom + 30
                     if not pygame.sprite.spritecollide(jugador, lista_w, False):
                         sprites.actualizar(jugador)
-                        socket.send_json({"tipo":"movimiento", "pos_act": jugador.ret_pos(), "id":id_jug})
+                        socket.send_json({"tipo":"movimiento", "pos_act": jugador.ret_pos(), "id":ide})
                         resp = socket.recv_json()
                     else:
                         jugador.rect.bottom = jugador.rect.bottom - 30
 
-        # Galletas comidas
+        # En caso de comer galletas
         if not jugador.conv:
             comidas_p = pygame.sprite.spritecollide(jugador, lista_galletas, True)
             if len(comidas_p) > 0:
                 obj = comidas_p[0]
                 rect = (obj.rect.left, obj.rect.top, obj.rect.width, obj.rect.height)
-                socket.send_json({"tipo":"eat", "rect": rect, "esp": obj.esp, "id": id_jug})
+                socket.send_json({"tipo":"eat", "rect": rect, "esp": obj.esp, "id": ide})
                 r = socket.recv_json()
                 #sprites.lista.pop(index)
                 score = score + 1
+
+        # En caso de comer al enemigo
+        if jugador.eneconv:
+            comidos_e = pygame.sprite.spritecollide(jugador, lista_e, True)
+            if len(comidos_e) > 0:
+                obj_e = comidos_e[0]
+                id_en = obj_e.ide
+                socket.send_json({"tipo":"eat-ene", "id_en": id_en, "ide": ide})
+                r = socket.recv_json()
 
         # Pintar pantalla de negro
         screen.fill(black)
 
         # Actualizar ---------------------------------------
-        socket.send_json({"tipo": "act", "id":id_jug})
+        socket.send_json({"tipo": "act", "id":ide})
         resp = socket.recv_json()
 
         # Convertir a fantasmas de ser el caso
@@ -365,6 +389,7 @@ def startGame():
             sprites.lista[index_ene[enemigo]].rect.top = pos_ene[enemigo][1]
             if not(resp["convertir"]):
                 if resp["conv_t"]:
+                    jugador.eneconv = True
                     sprites.lista[index_ene[enemigo]].conv = True
                     sprites.lista[index_ene[enemigo]].camb_img(fantasma_ene_img)
 
@@ -379,9 +404,22 @@ def startGame():
                     sprites.lista[i].rect.left = -50
                     sprites.lista[i].rect.top = -50
 
+        # Verificar eliminados:
+        if resp["elim"]:
+            #sprites.lista.remove(jugador)
+            jugador.elim = True
+
+        # Eliminar enemigos
+        if resp["elim_e"] != None and resp["elim_e"] != jugador.ide:
+            sprites.eliminar(resp["elim_e"])
+
         sprites.dibujar(screen)
         text = font.render("Score: "+str(score)+"/"+str(bll), True, red)
-        screen.blit(text, [10, 10])
+        if not jugador.elim:
+            screen.blit(text, [10, 10])
+        else:
+            text_e = font.render("ESTAS ELIMINADO. ESPERA", True, red)
+            screen.blit(text_e, [10, 10])
 
         if score == bll:
             print("Gano")
@@ -391,6 +429,9 @@ def startGame():
 
         clock.tick(10)
 
+def main():
+    startGame()
+    pygame.quit()
 
-startGame()
-pygame.quit()
+if __name__ == '__main__':
+    main()

@@ -28,6 +28,8 @@ def main():
     conf_ini = []
     convertir = [False, None]
     cant_conv = 0
+    eliminar = [False, None]
+    cant_inf = 0
     # Posiciones de Galletas:
     while True:
         # Recibir mensaje
@@ -74,30 +76,47 @@ def main():
             socket.send_json({"resp": "OK"})
             # Si se comio la galleta especial
             if msg["esp"]:
-                print("El jugador {0} se comio la especial".format(msg["id"]))
                 convertir = [True, msg["id"]]
+
+        elif msg["tipo"] == "eat-ene":
+            eliminar = [True, msg["id_en"]]
+            socket.send_json({"resp": "OK"})
 
         elif msg["tipo"] == "act":
             # Actualizar posicones
             temp = posiciones[msg["id"]]
             posiciones.pop(msg["id"])
+
             # Si alguien comio la galleta especial:
-            if convertir[0]:
-                if convertir[1] == msg["id"]:
-                    conv = False
-                else:
-                    conv = True
+            if convertir[0] and not(convertir[1] == msg["id"]):
+                conv = True
                 cant_conv = cant_conv + 1
             else:
                 conv = False
-            #print("Enviar: ", conv)
-            socket.send_json({"resp": "OK", "pos_ene": posiciones, "galletas":indx_g, "convertir": conv, "conv_t": convertir[0]})
+
+            # Si eliminan a jugador
+            if eliminar[0] and (eliminar[1] == msg["id"]):
+                elim = True
+                cant_inf = cant_inf + 1
+            else:
+                elim = False
+
+            socket.send_json({"resp": "OK",
+                              "pos_ene": posiciones,
+                              "galletas":indx_g,
+                              "convertir": conv,
+                              "conv_t": convertir[0],
+                              "elim": elim,
+                              "elim_e": eliminar[1],
+                              })
 
             # Eliminar galletas consumidas
             posiciones[msg["id"]] = temp
 
             if cant_conv == cant_jug:
                 convertir, cant_conv = [False, None], 0
+            if cant_inf == cant_jug:
+                eliminar, cant_inf = [False, None], 0
 
 
 if __name__ == '__main__':
