@@ -25,7 +25,8 @@ def main():
     posiciones = {} # Diccionario que almacena las posicones, la llave es el id del jugador
     jug_cont = 0
     indx_g = []
-    #players = {}
+    conf_ini = []
+    # Posiciones de Galletas:
     while True:
         # Recibir mensaje
         msg = socket.recv_json()
@@ -44,14 +45,22 @@ def main():
             # Almacenar posicion del jugador en Diccionario
             posiciones[msg["id"]] = pos
 
-            socket.send_json({"resp":"connect", "pos":pos})
+            resp = {"resp":"connect", "pos":pos}
+            if len(posiciones) == 1:
+                resp["conf"] =  "map"
+
+            socket.send_json(resp)
+
+        elif msg["tipo"] == "conf_ini":
+            conf_ini = msg["rect_ga"]
+            socket.send_json({"resp": "Si"})
 
         # Cuando un jugador desea iniciar pero no se han conectado todos los jugadores
         elif msg["tipo"] == "init":
             if not(jug_cont == cant_jug):
                 socket.send_json({"resp":"No", "cant": jug_cont})
             else:
-                socket.send_json({"resp":"Si", "cant": jug_cont, "pos_ene": posiciones})
+                socket.send_json({"resp":"Si", "cant": jug_cont, "pos_ene": posiciones, "conf_ini": conf_ini})
 
         elif msg["tipo"] == "movimiento":
             posiciones[msg["id"]] = msg["pos_act"]

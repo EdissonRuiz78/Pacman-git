@@ -1,6 +1,7 @@
 import zmq
 import sys
 import pygame
+import random
 #import threading
 
 black = (0, 0, 0)
@@ -42,6 +43,8 @@ class Galleta_p(pygame.sprite.Sprite):
         self.image.fill(white)
         pygame.draw.ellipse(self.image, color, [0, 0, width, height])
         self.dib = True
+        self.color = color
+        self.esp = False
 
 # Creando los jugadores
 class Jugador(pygame.sprite.Sprite):
@@ -93,13 +96,6 @@ class Sprites():
 
 #---------------------
 # FUNCIONES
-
-# Determina si un objeto choca contra uno de los muros
-def hay_muro(pos, muros, ist=False):
-    for muro in muros:
-        if (pos[0] >= muro.x and pos[0] <= muro.x + muro.h) and (pos[1] >= muro.y and pos[1] <= muro.y + muro.w):
-            return True
-    return False
 
 # Creando el mapa
 def paredes():
@@ -165,30 +161,6 @@ def startGame():
     jugador = Jugador("images/pacman.png")
     sprites.agregar(jugador)
 
-  # Agregar las galletas pequeñas
-    lista_galletas = pygame.sprite.RenderPlain()
-    for row in range(19):
-        for column in range(19):
-            if (row == 7 or row == 8) and (column == 8 or column == 9 or column == 10):
-                continue
-            else:
-                galleta = Galleta_p(yellow, 4, 4)
-
-            # Definir posicion gposiciones_jugalleta pequeña
-            galleta.rect.x = (30*column+6)+26
-            galleta.rect.y = (30*row+6)+26
-            if hay_muro((galleta.rect.x, galleta.rect.y), lista_paredes):
-                continue
-            else:
-                # Agregar galleta a los sprites
-                #lista_galletas.append(galleta)
-                lista_galletas.add(galleta)
-                sprites.agregar(galleta)
-
-    bll = len(lista_galletas)
-    score = -1
-    done = False
-
     # CONECTARSE CON EL SERVIDOR
     socket = context.socket(zmq.REQ)
     socket.connect("tcp://localhost:4444")
@@ -204,6 +176,48 @@ def startGame():
         jugador.act_pos(resp["pos"])
         # Cambiar estado, se puede dibujar en pantalla al jugador
         jugador.camb_dib()
+
+        # Si es el jugador es el primero en conectarse, es quien genera aleatoreamente
+        # las galletas pequeñas y la especial
+        lista_galletas = pygame.sprite.RenderPlain()
+        if "conf" in resp:
+            # Agregar las galletas pequeñas
+            rand = 5
+            esp = False
+            lista_g = []
+            for row in range(19):
+              for column in range(19):
+                  if (row == 7 or row == 8) and (column == 8 or column == 9 or column == 10):
+                      continue
+                  else:
+                      galleta = Galleta_p(yellow, 4, 4)
+                      # Determinar si es la galleta especial
+                      if not esp:
+                          randg = random.randrange(20)
+                          if randg == 0:
+                              galleta = Galleta_p(red, 4, 4)
+                              print("La especial")
+                              galleta.esp = True
+                              esp = True
+
+                  # Definir posicion galleta pequeña
+                  galleta.rect.x = (30*column+6)+26
+                  galleta.rect.y = (30*row+6)+26
+                  if not pygame.sprite.spritecollide(galleta, lista_w, False):
+                      if galleta.esp:
+                          pos = (galleta.rect.left, galleta.rect.top)
+                          print(pos)
+                          if not(pos != (8, 8) and pos != (566, 8) and pos != (8, 566) and pos != (566, 566) and pos != (287, 271) and pos != (6, 306) and pos != (566, 306)):
+                              esp = False
+                      rect = [galleta.rect.x, galleta.rect.y, galleta.color]
+                      lista_g.append(rect)
+                  elif galleta.esp:
+                      esp = False
+                      #sprites.agregar(galleta)
+
+            #bll = len(lista_g)
+            socket.send_json({"tipo":"conf_ini", "rect_ga": lista_g})
+            resp = socket.recv_json()
 
         # Solicitar inicio de juego
         resp_i = "No" # Mandar constantemente mensajes
@@ -234,6 +248,17 @@ def startGame():
             sprites.agregar(en)
             index_ene[enemigo] = sprites.lista.index(en)
 
+        # Agregar mapa de galletas
+        lista_g = resp["conf_ini"]
+        for rect in lista_g:
+            galleta = Galleta_p(rect[2], 4, 4)
+            galleta.rect.x = rect[0]
+            galleta.rect.y = rect[1]
+            lista_galletas.add(galleta)
+            sprites.agregar(galleta)
+
+        bll = len(lista_galletas)
+
         # Iniciar graficos
         pygame.init()
         screen = pygame.display.set_mode([606, 606])
@@ -243,6 +268,8 @@ def startGame():
         clock = pygame.time.Clock()
         pygame.font.init()
         font = pygame.font.Font("freesansbold.ttf", 24)
+        done = False
+        score = 0
 
     else:
         print("OCURRIO UN ERROR AL CONECTARSE")
