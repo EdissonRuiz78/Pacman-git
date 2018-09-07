@@ -53,7 +53,7 @@ class Galleta_p(pygame.sprite.Sprite):
         self.dib = True
         self.color = color
         self.esp = False
-        self.ide = ""
+        self.ide = "galleta"
 
 # Creando los jugadores
 class Jugador(pygame.sprite.Sprite):
@@ -187,7 +187,7 @@ def startGame():
     # Agregar cada sprite de pared a la lista de sprites
     sprites.agregar_lista(lista_paredes)
 
-  # Create the player paddle object
+  # Crear el objeto jugador
     ide = sys.argv[1]
     jugador = Jugador(pacman_img, ide)
     sprites.agregar(jugador)
@@ -201,14 +201,14 @@ def startGame():
 
     # Recibir mensaje, debe ser tipo OK y contener la posicion si fue correcto
     resp = socket.recv_json()
-    print("RESPUESTA: ", resp)
+    #print("RESPUESTA: ", resp)
     if resp["resp"] == "connect":
         # Establecer posicon del jugador
         jugador.act_pos(resp["pos"])
         # Cambiar estado, se puede dibujar en pantalla al jugador
         jugador.camb_dib()
 
-        # Si es el jugador es el primero en conectarse, es quien genera aleatoreamente
+        # Si el jugador es el primero en conectarse, es quien genera aleatoreamente
         # las galletas pequeñas y la especial
         lista_galletas = pygame.sprite.RenderPlain()
         if "conf" in resp:
@@ -228,7 +228,7 @@ def startGame():
                           randg = random.randrange(50)
                           if randg == 0:
                               galleta = Galleta_p(red, 4, 4)
-                              print("La especial")
+                              #print("La especial")
                               galleta.esp = True
                               cont_esp = cont_esp + 1
                               #esp = True
@@ -239,7 +239,7 @@ def startGame():
                   if not pygame.sprite.spritecollide(galleta, lista_w, False):
                       if galleta.esp:
                           pos = (galleta.rect.left, galleta.rect.top)
-                          print(pos)
+                          #print(pos)
                           if not(pos != (8, 8) and pos != (566, 8) and pos != (8, 566) and pos != (566, 566) and pos != (287, 271) and pos != (6, 306) and pos != (566, 306)):
                               cont_esp = cont_esp - 1
                               #esp = False
@@ -248,9 +248,8 @@ def startGame():
                   elif galleta.esp:
                       cont_esp = cont_esp - 1
                       #esp = False
-
             #bll = len(lista_g)
-            socket.send_json({"tipo":"conf_ini", "rect_ga": lista_g})
+            socket.send_json({"tipo":"conf_ini", "rect_ga": lista_g, "cant_esp": esp})
             resp = socket.recv_json()
 
         # Solicitar inicio de juego
@@ -289,12 +288,15 @@ def startGame():
 
         # Agregar mapa de galletas
         lista_g = resp["conf_ini"]
+        pos_g_e = []
+        gall_elim = []
         for rect in lista_g:
             galleta = Galleta_p(rect[2], 4, 4)
             galleta.rect.x = rect[0]
             galleta.rect.y = rect[1]
             if rect[2] == list(red):
                 galleta.esp = True
+                pos_g_e.append([galleta.rect.x, galleta.rect.y])
             lista_galletas.add(galleta)
             sprites.agregar(galleta)
 
@@ -367,7 +369,8 @@ def startGame():
 
         # En caso de comer galletas
         if not jugador.conv:
-            comidas_p = pygame.sprite.spritecollide(jugador, lista_galletas, True)
+            comidas_p = pygame.sprite.spritecollide(jugador, lista_galletas, False)
+            #print("comidas_p", comidas_p)
             if len(comidas_p) > 0:
                 obj = comidas_p[0]
                 rect = (obj.rect.left, obj.rect.top, obj.rect.width, obj.rect.height)
@@ -384,7 +387,7 @@ def startGame():
             if comidos:
                 obj_e = comidos
                 id_en = obj_e.ide
-                print("ME COMI UNO")
+                #print("ME COMI UNO")
                 socket.send_json({"tipo":"eat-ene", "id_en": id_en, "ide": ide})
                 r = socket.recv_json()
 
@@ -400,10 +403,24 @@ def startGame():
             if resp["convertir"]:
                 jugador.conv = True
                 jugador.camb_img(fantasma_img)
+                sprites.actualizar(jugador)
+                #for elem in sprites.lista:
+                #    if elem.ide == "galleta":
+                #        if elem.esp:
+                #            sprites.lista[sprites.lista.index(elem)].rect.x = -100
+                #            sprites.lista[sprites.lista.index(elem)].rect.y = -100
             elif resp["reconv"]:
                 jugador.conv = False
                 jugador.camb_img(pacman_img)
                 sprites.actualizar(jugador)
+
+                #i_g = 0
+                #for elem in sprites.lista:
+                #    if elem.ide == "galleta":
+                #        if elem.esp:
+                #            sprites.lista[sprites.lista.index(elem)].rect.x = pos_g_e[i_g][0]
+                #            sprites.lista[sprites.lista.index(elem)].rect.y = pos_g_e[i_g][1]
+                #            i_g = i_g + 1
 
             # Actualizar enemigos
             pos_ene = resp["pos_ene"]
@@ -417,12 +434,26 @@ def startGame():
                         if index >= 0:
                             sprites.lista[index].conv = True
                             sprites.lista[index].camb_img(fantasma_ene_img)
+
+                        #for elem in sprites.lista:
+                        #    if elem.ide == "galleta":
+                        #        if elem.esp:
+                        #            sprites.lista[sprites.lista.index(elem)].rect.left = -100
+                        #            sprites.lista[sprites.lista.index(elem)].rect.top = -100
                     elif resp["reconv"]:
                         jugador.eneconv = False
                         index = buscar(sprites.lista, enemigo)
                         if index >= 0:
                             sprites.lista[index].conv = False
                             sprites.lista[index].camb_img(pacman_ene_img)
+
+                        #i_g = 0
+                        #for elem in sprites.lista:
+                        #    if elem.ide == "galleta":
+                        #        if elem.esp:
+                        #            sprites.lista[sprites.lista.index(elem)].rect.x = pos_g_e[i_g][0]
+                        #            sprites.lista[sprites.lista.index(elem)].rect.y = pos_g_e[i_g][1]
+                        #            i_g = i_g + 1
 
 
             # Actualizar galletas
@@ -432,9 +463,32 @@ def startGame():
                 for sprt in sprites.lista:
                     if sprt.rect == rect_g:
                         i = sprites.lista.index(sprt)
+                        sprites.lista[i].ide = ""
                         sprites.lista[i].dib = False
                         sprites.lista[i].rect.left = -50
                         sprites.lista[i].rect.top = -50
+
+            # Agregar nuevas especiales:
+            if "new_esp" in resp:
+                nuevas = resp["new_esp"]
+                for galleta in nuevas:
+                    #print ("ESTA ES LA NEUVA: ", galleta)
+                    rect_g = pygame.Rect(galleta[:2][0], galleta[:2][1], 4, 4)
+                    for sprt in sprites.lista:
+                        if sprt.rect == rect_g:
+                            i = sprites.lista.index(sprt)
+                            sprites.lista[i].ide = "galleta"
+                            sprites.lista[i].dib = True
+                            sprites.lista[i].rect.left = rect_g.left
+                            sprites.lista[i].rect.top = rect_g.top
+                            sprites.lista[i].image.fill(red)
+                            #pygame.draw.ellipse(sprites.lista[i].image, red, [rect_g.left, rect_g.top, 4, 4])
+                            #sprites.lista[i].color = red
+                            elem = Galleta_p(red, 4, 4)
+                            elem.esp = True
+                            elem.rect.left = rect_g.left
+                            elem.rect.top = rect_g.top
+                            lista_galletas.add(elem)
 
             # Verificar eliminados:
             if resp["elim"]:

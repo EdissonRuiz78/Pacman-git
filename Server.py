@@ -11,6 +11,8 @@ posiciones_jug = [(8, 8), (566, 8), (8, 566), (566, 566), (287, 271), (6, 306), 
 
 class Convert():
     def __init__(self):
+        # El primer campo es que si alguien se comio la galleta esp
+        # El segundo campo es quien se la comio
         self.convertir = [False, None]
         self.reconv = False
 
@@ -18,9 +20,9 @@ class Convert():
         self.convertir = [bol, ide]
 
 def cambio(c):
-    print("Comienzan fantasmas")
-    time.sleep(15)
-    print("A reconvertirse")
+    #print("Comienzan fantasmas")
+    time.sleep(7)
+    #print("A reconvertirse")
     c.reconv = True
 
 
@@ -45,6 +47,8 @@ def main():
     # Variables para controlar cambios de galletas
     indx_g = []
     conf_ini = []
+    cant_esp = 0
+    cont_esp = 0
 
     # Variables para controlar conversion a fantasmas
     c = Convert()
@@ -88,6 +92,7 @@ def main():
 
         elif msg["tipo"] == "conf_ini":
             conf_ini = msg["rect_ga"]
+            cant_esp = msg["cant_esp"]
             socket.send_json({"resp": "Si"})
 
         # Cuando un jugador desea iniciar pero no se han conectado todos los jugadores
@@ -110,13 +115,14 @@ def main():
             socket.send_json({"resp": "OK"})
             # Si se comio la galleta especial
             if msg["esp"]:
+                cont_esp = cont_esp + 1
                 c.camb_est(True, msg["id"])
                 t = threading.Thread(target=cambio, args=(c, ))
                 t.start()
 
         elif msg["tipo"] == "eat-ene":
             eliminar = [True, msg["id_en"]]
-            print("Eliminado {0} por {1}".format(msg["id_en"], msg["ide"]))
+            #print("Eliminado {0} por {1}".format(msg["id_en"], msg["ide"]))
             puntos_p = puntos_p - 1
             socket.send_json({"resp": "OK"})
 
@@ -124,8 +130,9 @@ def main():
             #print("POSCIONES: ID {0} POS {1}".format(msg["id"], posiciones[msg["id"]]))
              # Solo puede quedar un punto por hacer: el jugador sobreviviente
             if not(puntos_p == 1):
-                # Actualizar posicones
+                # Verificar si el jugador esta vivo
                 if msg["id"] in posiciones:
+                    # Actualizar posicones
                     temp = posiciones[msg["id"]]
                     posiciones.pop(msg["id"])
 
@@ -144,21 +151,37 @@ def main():
                     else:
                         elim = False
 
-                    socket.send_json({"resp": "OK",
-                                      "pos_ene": posiciones,
-                                      "galletas":indx_g,
-                                      "convertir": conv,
-                                      "conv_t": c.convertir[0],
-                                      "reconv": c.reconv,
-                                      "elim": elim,
-                                      "elim_e": eliminar[1],
-                                      })
+                    resp_m = {"resp": "OK",
+                           "pos_ene": posiciones, # posiciones jugador excluyendo a quien pregunta
+                           "galletas":indx_g,     # Galletas por eliminar (ver caso 'eat')
+                           "convertir": conv,     # Si debe convertirse el jugador que pregunta
+                           "conv_t": c.convertir[0], # Si alguien se come la galleta. Es true para todos
+                           "reconv": c.reconv,    # Se pone true cuando pasan 15 seg de comida una galleta
+                           "elim": elim,
+                           "elim_e": eliminar[1],
+                           }
+
+                    # Cuando se acaban las galletas especiales
+                    if cont_esp == cant_esp:
+                        cont_esp = 0
+                        list_new_g = []
+                        while not(len(list_new_g)) == cant_esp:
+                            index = random.randrange(len(conf_ini))
+                            if not (conf_ini[index][2] == (255, 0, 0)):
+                                elem = [conf_ini[index][0], conf_ini[index][1], (255, 0, 0)]
+                                list_new_g.append(elem)
+                        resp_m["new_esp"] = list_new_g
+
+                    socket.send_json(resp_m)
+
                     if not elim:
                         posiciones[msg["id"]] = temp
 
+                    # Verificar cuantos jugadores han sido informados de una conversion
                     if cant_conv == cant_jug:
                         c.camb_est(False, None)
                         cant_conv = 0
+                    # Verificar cuantos jugadores han sido informados de una eliminacion
                     if cant_inf == cant_jug:
                         eliminar, cant_inf = [False, None], 0
                 else:
