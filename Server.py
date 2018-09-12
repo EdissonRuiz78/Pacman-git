@@ -21,8 +21,8 @@ class Convert():
 
 def cambio(c):
     #print("Comienzan fantasmas")
-    time.sleep(7)
-    #print("A reconvertirse")
+    time.sleep(15)
+    #print("Terminan fantasmas")
     c.reconv = True
 
 
@@ -47,8 +47,6 @@ def main():
     # Variables para controlar cambios de galletas
     indx_g = []
     conf_ini = []
-    cant_esp = 0
-    cont_esp = 0
 
     # Variables para controlar conversion a fantasmas
     c = Convert()
@@ -92,7 +90,6 @@ def main():
 
         elif msg["tipo"] == "conf_ini":
             conf_ini = msg["rect_ga"]
-            cant_esp = msg["cant_esp"]
             socket.send_json({"resp": "Si"})
 
         # Cuando un jugador desea iniciar pero no se han conectado todos los jugadores
@@ -115,7 +112,6 @@ def main():
             socket.send_json({"resp": "OK"})
             # Si se comio la galleta especial
             if msg["esp"]:
-                cont_esp = cont_esp + 1
                 c.camb_est(True, msg["id"])
                 t = threading.Thread(target=cambio, args=(c, ))
                 t.start()
@@ -151,29 +147,15 @@ def main():
                     else:
                         elim = False
 
-                    resp_m = {"resp": "OK",
-                           "pos_ene": posiciones, # posiciones jugador excluyendo a quien pregunta
-                           "galletas":indx_g,     # Galletas por eliminar (ver caso 'eat')
-                           "convertir": conv,     # Si debe convertirse el jugador que pregunta
-                           "conv_t": c.convertir[0], # Si alguien se come la galleta. Es true para todos
-                           "reconv": c.reconv,    # Se pone true cuando pasan 15 seg de comida una galleta
-                           "elim": elim,
-                           "elim_e": eliminar[1],
-                           }
-
-                    # Cuando se acaban las galletas especiales
-                    if cont_esp == cant_esp:
-                        cont_esp = 0
-                        list_new_g = []
-                        while not(len(list_new_g)) == cant_esp:
-                            index = random.randrange(len(conf_ini))
-                            if not (conf_ini[index][2] == (255, 0, 0)):
-                                elem = [conf_ini[index][0], conf_ini[index][1], (255, 0, 0)]
-                                list_new_g.append(elem)
-                        resp_m["new_esp"] = list_new_g
-
-                    socket.send_json(resp_m)
-
+                    socket.send_json({"resp": "OK",
+                                      "pos_ene": posiciones, # posiciones jugador excluyendo a quien pregunta
+                                      "galletas":indx_g,     # Galletas por eliminar (ver caso 'eat')
+                                      "convertir": conv,     # Si debe convertirse el jugador que pregunta
+                                      "conv_t": c.convertir[0], # Si alguien se come la galleta. Es true para todos
+                                      "reconv": c.reconv,    # Se pone true cuando pasan 15 seg de comida una galleta
+                                      "elim": elim,
+                                      "elim_e": eliminar[1],
+                                      })
                     if not elim:
                         posiciones[msg["id"]] = temp
 

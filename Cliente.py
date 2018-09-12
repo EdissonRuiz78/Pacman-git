@@ -2,7 +2,7 @@ import zmq
 import sys
 import pygame
 import random
-#import threading
+import threading
 
 black = (0, 0, 0)
 white = (255, 255, 255)
@@ -20,9 +20,8 @@ jug_img = [pacman_img, fantasma_img]
 fantasma_ene_img = "images/fantasma-ene.png"
 ene_img = [pacman_ene_img, fantasma_ene_img]
 
-#pygame.display.set_icon(pacman_img)
-pygame.mixer.init()
-pygame.mixer.music.load('pacman.mp3')
+#pygame.mixer.init()
+#pygame.mixer.music.load('pacman.mp3')
 #pygame.mixer.music.play(-1, 0.0)
 
 context = zmq.Context()
@@ -84,7 +83,8 @@ class Jugador(pygame.sprite.Sprite):
         self.rect.top = pos[1]
         self.x = self.rect.left
         self.y = self.rect.top
-
+    
+    #Metodo para detectar colisiones
     def colision(self, lista):
         for elem in lista:
             if self.rect.colliderect(elem.rect):
@@ -118,7 +118,6 @@ class Sprites():
             if sprite.dib:
                 screen.blit(sprite.image, sprite.rect)
 
-#---------------------
 # FUNCIONES
 
 # Creando el mapa
@@ -214,7 +213,7 @@ def startGame():
         if "conf" in resp:
             # Agregar las galletas pequeñas
             rand = 5
-            esp = 3 #False
+            esp = 3#False
             cont_esp = 0
             lista_g = []
             for row in range(19):
@@ -224,14 +223,12 @@ def startGame():
                   else:
                       galleta = Galleta_p(yellow, 4, 4)
                       # Determinar si es la galleta especial
-                      if cont_esp < esp:#not esp:
+                      if cont_esp < esp:
                           randg = random.randrange(50)
                           if randg == 0:
                               galleta = Galleta_p(red, 4, 4)
-                              #print("La especial")
                               galleta.esp = True
                               cont_esp = cont_esp + 1
-                              #esp = True
 
                   # Definir posicion galleta pequeña
                   galleta.rect.x = (30*column+6)+26
@@ -239,7 +236,6 @@ def startGame():
                   if not pygame.sprite.spritecollide(galleta, lista_w, False):
                       if galleta.esp:
                           pos = (galleta.rect.left, galleta.rect.top)
-                          #print(pos)
                           if not(pos != (8, 8) and pos != (566, 8) and pos != (8, 566) and pos != (566, 566) and pos != (287, 271) and pos != (6, 306) and pos != (566, 306)):
                               cont_esp = cont_esp - 1
                               #esp = False
@@ -248,8 +244,9 @@ def startGame():
                   elif galleta.esp:
                       cont_esp = cont_esp - 1
                       #esp = False
+
             #bll = len(lista_g)
-            socket.send_json({"tipo":"conf_ini", "rect_ga": lista_g, "cant_esp": esp})
+            socket.send_json({"tipo":"conf_ini", "rect_ga": lista_g})
             resp = socket.recv_json()
 
         # Solicitar inicio de juego
@@ -289,7 +286,6 @@ def startGame():
         # Agregar mapa de galletas
         lista_g = resp["conf_ini"]
         pos_g_e = []
-        gall_elim = []
         for rect in lista_g:
             galleta = Galleta_p(rect[2], 4, 4)
             galleta.rect.x = rect[0]
@@ -369,14 +365,12 @@ def startGame():
 
         # En caso de comer galletas
         if not jugador.conv:
-            comidas_p = pygame.sprite.spritecollide(jugador, lista_galletas, False)
-            #print("comidas_p", comidas_p)
+            comidas_p = pygame.sprite.spritecollide(jugador, lista_galletas, True)
             if len(comidas_p) > 0:
                 obj = comidas_p[0]
                 rect = (obj.rect.left, obj.rect.top, obj.rect.width, obj.rect.height)
                 socket.send_json({"tipo":"eat", "rect": rect, "esp": obj.esp, "id": ide})
                 r = socket.recv_json()
-                #sprites.lista.pop(index)
                 score = score + 1
                 comidas_p = []
 
@@ -468,28 +462,6 @@ def startGame():
                         sprites.lista[i].rect.left = -50
                         sprites.lista[i].rect.top = -50
 
-            # Agregar nuevas especiales:
-            if "new_esp" in resp:
-                nuevas = resp["new_esp"]
-                for galleta in nuevas:
-                    #print ("ESTA ES LA NEUVA: ", galleta)
-                    rect_g = pygame.Rect(galleta[:2][0], galleta[:2][1], 4, 4)
-                    for sprt in sprites.lista:
-                        if sprt.rect == rect_g:
-                            i = sprites.lista.index(sprt)
-                            sprites.lista[i].ide = "galleta"
-                            sprites.lista[i].dib = True
-                            sprites.lista[i].rect.left = rect_g.left
-                            sprites.lista[i].rect.top = rect_g.top
-                            sprites.lista[i].image.fill(red)
-                            #pygame.draw.ellipse(sprites.lista[i].image, red, [rect_g.left, rect_g.top, 4, 4])
-                            #sprites.lista[i].color = red
-                            elem = Galleta_p(red, 4, 4)
-                            elem.esp = True
-                            elem.rect.left = rect_g.left
-                            elem.rect.top = rect_g.top
-                            lista_galletas.add(elem)
-
             # Verificar eliminados:
             if resp["elim"]:
                 #sprites.lista.remove(jugador)
@@ -513,10 +485,10 @@ def startGame():
             clock.tick(10)
         else:
             if not jugador.elim:
-                text_w = font.render("FELICITACIONES GANASTE", True, red)
+                text_w = font.render("CONGRATULATIONS YOU WIN...", True, red)
                 screen.blit(text_w, [10, 303])
             else:
-                text_l = font.render("LASTIMA. PERDISTE", True, red)
+                text_l = font.render("GAME OVER...", True, red)
                 screen.blit(text_l, [10, 303])
 
             pygame.display.flip()
